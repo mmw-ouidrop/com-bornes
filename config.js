@@ -15,7 +15,7 @@ window.OUIDROP_CONFIG = {
 
   // Messages prédéfinis. {phone} est remplacé par supportPhone.
   messages: {
-    support: 'Ici le support technique, veuillez nous contacterau {phone}.',
+    support: 'Ici le support technique, veuillez nous contacter au {phone}.',
     wait:    'Merci de patienter, nous intervenons sur votre borne.',
     done:    'L’intervention est terminée. Merci de votre patience. Le processus va reprendre son cours dans quelques secondes.',
   }
