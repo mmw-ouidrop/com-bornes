@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Affichage verrouillé — Ouidrop</title>
+<link rel="stylesheet" href="style.css">
+<style>
+body{overflow:hidden;background:var(--blue)}
+#screen{position:fixed;inset:0;display:flex;padding:5vw;overflow:auto;background:var(--blue);color:#fff;text-align:center}
+.stage{margin:auto;display:flex;flex-direction:column;align-items:center;gap:24px;max-width:100%}
+#displayText{font-size:clamp(2rem,5vw,5rem);font-weight:700;line-height:1.2;white-space:pre-wrap;overflow-wrap:anywhere}
+#displayText.empty{font-size:1.2rem;font-weight:500;color:var(--pale);opacity:.7}
+#displayMedia img,#displayMedia video{max-width:90vw;max-height:62vh}
+#displayMedia iframe{width:min(90vw,1100px)}
+#unlock{position:fixed;right:12px;bottom:12px;width:44px;height:44px;border:0;border-radius:50%;background:#fff;color:var(--blue);display:grid;place-items:center;cursor:pointer;opacity:.18;transition:opacity .2s}
+#unlock svg{width:20px;height:20px}
+#unlock:hover,#unlock:focus{opacity:1}
+</style>
+</head>
+<body>
+<main id="screen" aria-live="polite">
+ <div class="stage">
+  <div id="displayText"></div>
+  <div id="displayMedia" class="media-box" hidden></div>
+ </div>
+</main>
+<button id="unlock" type="button" title="Retour aux commandes (Échap)" aria-label="Retour aux commandes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+
+<script src="config.js"></script>
+<script src="ouidrop.js"></script>
+<script>
+(async function () {
+  var text = document.getElementById('displayText');
+  var box = document.getElementById('displayMedia');
+  var objectUrl = null;
+
+  var d = Ouidrop.loadDisplay();
+  if (d.text.trim()) text.textContent = d.text;
+  else if (!d.media) { text.textContent = 'Aucun contenu à afficher.'; text.className = 'empty'; }
+
+  var m = d.media, candidates = null;
+  if (m && m.origin === 'file') {
+    var blob = null;
+    try { blob = await Ouidrop.getBlob(); } catch (e) {}
+    if (blob) {
+      objectUrl = URL.createObjectURL(blob);
+      candidates = Ouidrop.fileCandidates(m.kind, objectUrl);
+    }
+  } else if (m && m.origin === 'url') {
+    var r = Ouidrop.resolveLink(m.url, m.hint);
+    if (r.ok) candidates = r.candidates;
+  }
+  if (candidates) {
+    box.hidden = false;
+    Ouidrop.mountMedia(box, candidates, {
+      autoplay: true, loop: true, alt: 'Média de maintenance',
+      onStatus: function (s) { if (s === 'error') box.hidden = true; }   // le texte reste affiché
+    });
+  }
+
+  function exitDisplay() { location.href = 'maintenance.html'; }
+  document.getElementById('unlock').addEventListener('click', exitDisplay);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.preventDefault(); exitDisplay(); } });
+  window.addEventListener('pagehide', function () { if (objectUrl) URL.revokeObjectURL(objectUrl); });
+})();
+</script>
+</body>
+</html>

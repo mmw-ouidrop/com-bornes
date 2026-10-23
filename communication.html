@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Communication live — Ouidrop</title>
+<link rel="stylesheet" href="style.css">
+<style>
+body.comm{display:flex;flex-direction:column}
+body.comm .top{padding-left:130px;padding-right:130px}
+body.comm main{flex:1;display:flex;flex-direction:column;justify-content:center;width:min(1100px,100%);margin:0 auto;padding:16px 22px 28px}
+
+/* Navigation en haut à droite */
+.corner-nav{position:fixed;top:16px;right:16px;display:flex;gap:10px;z-index:5}
+
+/* Champ de saisie = affichage destiné au client */
+.message-field{display:block;width:100%;min-height:clamp(180px,38vh,380px);resize:vertical;border:3px solid transparent;border-radius:18px;padding:clamp(18px,3vw,32px);background:#fff;color:var(--blue);font:600 clamp(1.35rem,3vw,2.5rem)/1.35 var(--body);text-align:center;outline:none;box-shadow:0 8px 28px #00152d22;margin:0}
+.message-field:focus{border-color:var(--accent)}
+
+/* Alerte visuelle : les fonds changent explicitement (pas de filter:invert) */
+body.flash{background:#fff;color:var(--blue)}
+body.flash .top p{color:var(--blue)}
+body.flash .message-field{background:var(--blue);color:#fff;border-color:var(--blue)}
+body.flash .iconbtn{background:var(--blue);color:#fff}
+
+@media (max-width:560px){
+  body.comm .top{padding:70px 16px 12px}
+}
+</style>
+</head>
+<body class="comm">
+<nav class="corner-nav" aria-label="Navigation">
+ <a class="iconbtn" id="home" href="index.html" aria-label="Accueil" title="Accueil"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg></a>
+ <a class="iconbtn" id="lock" href="affichage.html" aria-label="Verrouiller l’affichage" title="Verrouiller l’affichage"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></a>
+</nav>
+
+<header class="top"><h1>Communication live</h1><p>Support technique Ouidrop</p></header>
+
+<main>
+ <label class="sr-only" for="message">Message affiché au client</label>
+ <textarea id="message" class="message-field" placeholder="Tapez votre message ici…" autofocus spellcheck="false" autocomplete="off"></textarea>
+
+ <nav class="toolbar" aria-label="Actions de communication">
+  <button class="iconbtn" type="button" id="clear" aria-label="Effacer le message" title="Effacer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 15 9-11a2 2 0 0 1 3 0l6 6a2 2 0 0 1 0 3l-7 7H8l-5-5Z"/><path d="m8 10 8 8"/></svg></button>
+  <button class="iconbtn" type="button" data-msg="support" aria-label="Afficher le numéro du support" title="Numéro du support"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.4 19.4 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.9L7.1 10.5a16 16 0 0 0 6 6l1.9-1.9a2 2 0 0 1 1.9-.6l3 .5a2 2 0 0 1 2.1 2.4Z"/></svg></button>
+  <button class="iconbtn" type="button" data-msg="wait" aria-label="Message d’attente" title="Patienter"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button>
+  <button class="iconbtn" type="button" data-msg="repair" aria-label="Intervention en cours" title="Intervention en cours"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a5 5 0 0 0-6.4 6.4L3 18l3 3 5.3-5.3a5 5 0 0 0 6.4-6.4L14 12l-2-2 2.7-3.7Z"/></svg></button>
+  <button class="iconbtn" type="button" data-msg="done" aria-label="Fin d’intervention" title="Fin d’intervention"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16.5 9"/></svg></button>
+  <button class="iconbtn" type="button" id="attention" aria-pressed="false" aria-label="Attirer l’attention du client pendant cinq secondes" title="Attirer l’attention (5 s)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/><path d="M19 3l1.5-1M22 7h-2M5 3 3.5 2M2 7h2"/></svg></button>
+ </nav>
+</main>
+
+<script src="config.js"></script>
+<script src="ouidrop.js"></script>
+<script>
+(function () {
+  var field = document.getElementById('message');
+  var att = document.getElementById('attention');
+
+  function focusField() {
+    field.focus({ preventScroll: true });
+    var n = field.value.length;
+    field.setSelectionRange(n, n);
+  }
+
+  // pageshow : se déclenche aussi quand Firefox restaure la page depuis son cache (retour arrière)
+  window.addEventListener('pageshow', function () {
+    var preset = Ouidrop.takePreset();
+    if (preset !== null) field.value = preset;
+    setTimeout(focusField, 50);
+  });
+
+  document.getElementById('clear').addEventListener('click', function () {
+    field.value = '';
+    focusField();
+  });
+
+  // Messages prédéfinis : ils remplacent le texte, qui reste modifiable ensuite
+  document.querySelectorAll('[data-msg]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      field.value = Ouidrop.message(b.dataset.msg);
+      focusField();
+    });
+  });
+
+  // Si le focus a été perdu (clic à côté), la prochaine frappe retourne dans le champ
+  document.addEventListener('keydown', function (e) {
+    if (document.activeElement === field || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key.length === 1 && e.key !== ' ') focusField();
+  });
+
+  // « Verrouiller l’affichage » montre ce qui est écrit dans le champ
+  document.getElementById('lock').addEventListener('click', function () {
+    if (field.value.trim()) {
+      Ouidrop.saveDisplay({ text: field.value, media: null });
+      Ouidrop.clearBlob().catch(function () {});
+    }
+  });
+
+  // Alerte : fonds body + champ alternent bleu/blanc toutes les 500 ms pendant 5 s
+  var interval = null, timeout = null;
+  function stop() {
+    clearInterval(interval); clearTimeout(timeout);
+    interval = timeout = null;
+    document.body.classList.remove('flash');
+    att.disabled = false;
+    att.setAttribute('aria-pressed', 'false');
+    focusField();
+  }
+  att.addEventListener('click', function () {
+    if (att.disabled) return;
+    att.disabled = true;
+    att.setAttribute('aria-pressed', 'true');
+    document.body.classList.add('flash');
+    interval = setInterval(function () { document.body.classList.toggle('flash'); }, 500);
+    timeout = setTimeout(stop, 5000);
+    focusField();
+  });
+})();
+</script>
+</body>
+</html>

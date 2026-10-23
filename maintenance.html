@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mode maintenance — Ouidrop</title>
+<link rel="stylesheet" href="style.css">
+<style>
+#previewText{font-size:clamp(1.3rem,3vw,2.2rem);font-weight:700;color:var(--blue);white-space:pre-wrap;overflow-wrap:anywhere}
+#previewArea{min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center}
+</style>
+</head>
+<body>
+<header class="top"><h1>Mode maintenance</h1><p>Préparer un message ou un média avant de l’afficher sur la borne</p></header>
+<main class="wrap">
+ <section class="panel">
+  <div id="fileWarn" class="notice" hidden>Cette page est ouverte depuis un fichier local (file://). Sous Firefox, le contenu validé peut ne pas être transmis à la page d’affichage. Utilisez l’adresse GitHub Pages ou un petit serveur local (voir README).</div>
+
+  <div class="field"><label for="maintText">Message à afficher (facultatif)</label><textarea id="maintText" placeholder="Saisissez le message de maintenance…"></textarea></div>
+
+  <div class="group">
+   <p class="group-title">Média (facultatif)</p>
+   <div class="field">
+    <label for="mediaFile">Depuis cet ordinateur</label>
+    <input id="mediaFile" type="file" accept="image/*,video/*,.jpg,.jpeg,.png,.gif,.webp,.mp4,.m4v,.webm,.ogv,.mov">
+   </div>
+   <div class="field">
+    <label for="mediaLink">Ou depuis un lien (Google Drive, site web…)</label>
+    <div class="linkrow">
+     <input id="mediaLink" type="text" inputmode="url" placeholder="Collez ici le lien de l’image ou de la vidéo" autocomplete="off" spellcheck="false">
+     <select id="mediaType" aria-label="Type de média">
+      <option value="auto">Type : auto</option>
+      <option value="image">Image</option>
+      <option value="video">Vidéo</option>
+     </select>
+     <button class="btn" type="button" id="loadLink">Charger</button>
+    </div>
+   </div>
+   <p id="mediaStatus" class="status" role="status" aria-live="polite"></p>
+  </div>
+
+  <div class="actions" style="justify-content:flex-start">
+   <button class="btn secondary" type="button" id="drive">Ouvrir le dossier Google Drive</button>
+   <button class="btn" type="button" id="preview">Prévisualiser</button>
+   <button class="btn dark" type="button" id="validate">Valider et afficher</button>
+   <button class="btn secondary" type="button" id="clearMedia">Retirer le média</button>
+  </div>
+  <p class="muted">Google Drive : ouvrez le dossier, faites un clic droit sur le fichier → Partager (« Toute personne disposant du lien ») → Copier le lien, puis collez-le ci-dessus. Pour une vidéo Drive, choisissez le type « Vidéo ». Un fichier importé depuis l’ordinateur reste sur cet ordinateur : il n’est envoyé sur aucun serveur.</p>
+ </section>
+
+ <section class="panel" style="margin-top:16px">
+  <h2>Prévisualisation</h2>
+  <div id="previewArea">
+   <div id="previewText" hidden></div>
+   <div id="previewMedia" class="media-box" hidden></div>
+   <p id="previewEmpty" class="muted">Votre message ou média apparaîtra ici.</p>
+  </div>
+ </section>
+ <div class="actions" style="margin-top:16px"><a class="btn secondary" href="index.html">Accueil</a><a class="btn secondary" href="affichage.html">Mode affichage verrouillé</a></div>
+</main>
+
+<script src="config.js"></script>
+<script src="ouidrop.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var text = $('maintText'), fileIn = $('mediaFile'), linkIn = $('mediaLink'), typeSel = $('mediaType');
+  var pText = $('previewText'), pMedia = $('previewMedia'), pEmpty = $('previewEmpty'), statusEl = $('mediaStatus');
+  var validateBtn = $('validate');
+
+  // source : null | {type:'file', file, kind, name, stored?} | {type:'url', url, hint}
+  var source = null, objectUrl = null, cancelMount = null;
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg || '';
+    statusEl.className = 'status' + (isError ? ' error' : '');
+  }
+  function mo(n) { return Math.round(n / 1048576); }
+
+  function updatePreviewState() {
+    pEmpty.hidden = !!(text.value.trim() || source);
+  }
+  function renderText() {
+    pText.textContent = text.value;
+    pText.hidden = !text.value.trim();
+    updatePreviewState();
+  }
+
+  function renderMedia() {
+    if (cancelMount) { cancelMount(); cancelMount = null; }
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+    pMedia.textContent = '';
+    if (!source) { pMedia.hidden = true; updatePreviewState(); return; }
+    pMedia.hidden = false;
+
+    var candidates;
+    if (source.type === 'file') {
+      objectUrl = URL.createObjectURL(source.file);
+      candidates = Ouidrop.fileCandidates(source.kind, objectUrl);
+    } else {
+      var r = Ouidrop.resolveLink(source.url, source.hint);
+      if (!r.ok) { setStatus(r.error, true); pMedia.hidden = true; updatePreviewState(); return; }
+      candidates = r.candidates;
+    }
+    cancelMount = Ouidrop.mountMedia(pMedia, candidates, {
+      controls: true,
+      alt: 'Média sélectionné',
+      onStatus: function (s) {
+        if (s === 'loading') setStatus('Chargement du média…');
+        else if (s === 'ok') setStatus(source && source.type === 'file' ? 'Fichier prêt : ' + source.name : 'Média chargé.');
+        else setStatus(source && source.type === 'file'
+          ? 'Ce fichier ne peut pas être affiché par le navigateur (format ou codec non pris en charge).'
+          : 'Impossible d’afficher ce lien. Vérifiez qu’il pointe vers une image ou une vidéo et, pour Google Drive, que le partage est réglé sur « Toute personne disposant du lien ».', true);
+      }
+    });
+    updatePreviewState();
+  }
+
+  function setSource(s) { source = s; renderMedia(); }
+
+  function applyLink() {
+    var raw = linkIn.value.trim();
+    if (!raw) { if (source && source.type === 'url') { setSource(null); setStatus(''); } return; }
+    var r = Ouidrop.resolveLink(raw, typeSel.value);
+    if (!r.ok) { setSource(null); setStatus(r.error, true); return; }
+    fileIn.value = '';
+    setStatus('');
+    setSource({ type: 'url', url: raw, hint: typeSel.value });
+  }
+
+  text.addEventListener('input', renderText);
+
+  fileIn.addEventListener('change', function () {
+    var f = fileIn.files[0];
+    if (!f) return;
+    if (f.size > Ouidrop.maxBytes) {
+      setStatus('Fichier trop volumineux (' + mo(f.size) + ' Mo) : la limite est de ' + Ouidrop.config.maxFileMB + ' Mo (modifiable dans config.js).', true);
+      fileIn.value = '';
+      return;
+    }
+    linkIn.value = '';
+    setStatus('');
+    setSource({ type: 'file', file: f, kind: Ouidrop.kindOfFile(f), name: f.name });
+  });
+
+  $('loadLink').addEventListener('click', applyLink);
+  linkIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } });
+  linkIn.addEventListener('paste', function () { setTimeout(applyLink, 0); });
+  typeSel.addEventListener('change', function () { if (linkIn.value.trim()) applyLink(); });
+
+  $('preview').addEventListener('click', function () { renderText(); if (source) renderMedia(); });
+
+  $('clearMedia').addEventListener('click', function () {
+    fileIn.value = ''; linkIn.value = '';
+    setSource(null);
+    setStatus('Média retiré.');
+  });
+
+  $('drive').addEventListener('click', function () {
+    var url = Ouidrop.config.driveFolderUrl;
+    if (/^https?:\/\//.test(url)) window.open(url, '_blank', 'noopener');
+    else alert('Renseignez driveFolderUrl dans config.js avec le lien de votre dossier Google Drive.');
+  });
+
+  validateBtn.addEventListener('click', async function () {
+    validateBtn.disabled = true;
+    try {
+      var payload = { text: text.value, media: null };
+      if (source && source.type === 'file') {
+        if (!source.stored) {
+          setStatus('Enregistrement du fichier…');
+          await Ouidrop.putBlob(source.file);
+        }
+        payload.media = { origin: 'file', kind: source.kind, name: source.name, type: source.file.type || '' };
+      } else if (source && source.type === 'url') {
+        var r = Ouidrop.resolveLink(source.url, source.hint);
+        if (!r.ok) { setStatus(r.error, true); validateBtn.disabled = false; return; }
+        payload.media = { origin: 'url', url: source.url, hint: source.hint };
+        await Ouidrop.clearBlob().catch(function () {});
+      } else {
+        await Ouidrop.clearBlob().catch(function () {});
+      }
+      if (!Ouidrop.saveDisplay(payload)) throw new Error('stockage');
+      location.href = 'affichage.html';
+    } catch (e) {
+      setStatus('Impossible d’enregistrer le contenu (stockage du navigateur indisponible ou plein, navigation privée ?).', true);
+      validateBtn.disabled = false;
+    }
+  });
+
+  if (location.protocol === 'file:') $('fileWarn').hidden = false;
+
+  // Retour depuis l’affichage : on retrouve le dernier contenu validé
+  (async function restore() {
+    var d = Ouidrop.loadDisplay();
+    text.value = d.text;
+    renderText();
+    var m = d.media;
+    if (m && m.origin === 'url') {
+      linkIn.value = m.url; typeSel.value = m.hint || 'auto';
+      applyLink();
+    } else if (m && m.origin === 'file') {
+      try {
+        var blob = await Ouidrop.getBlob();
+        if (blob) setSource({ type: 'file', file: blob, kind: m.kind, name: m.name || 'fichier enregistré', stored: true });
+      } catch (e) { /* fichier introuvable : on l’ignore */ }
+    }
+    updatePreviewState();
+  })();
+})();
+</script>
+</body>
+</html>
