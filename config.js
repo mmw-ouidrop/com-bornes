@@ -3,21 +3,20 @@
    ------------------------------------------------------------------ */
 window.OUIDROP_CONFIG = {
   // Numéro de téléphone inséré dans le message « support »
-  supportPhone: '01 02 03 04 05',
+  supportPhone: '09 70 70 22 23',
 
   // Lien du dossier Google Drive partagé (bouton de la page maintenance).
   // Exemple : 'https://drive.google.com/drive/folders/XXXXXXXXXXXX'
   // Laisser vide si inutilisé.
-  driveFolderUrl: '',
+  driveFolderUrl: 'https://drive.google.com/drive/folders/1UsoBL6WYIAFCLH1szO87Rt5rAdL8x8Wj',
 
   // Taille maximale d’un fichier importé depuis l’ordinateur (en Mo)
-  maxFileMB: 200,
+  maxFileMB: 20,
 
   // Messages prédéfinis. {phone} est remplacé par supportPhone.
   messages: {
-    support: 'Pour obtenir de l’aide, appelez le support technique au {phone}.',
+    support: 'Ici le support technique, veuillez nous contacterau {phone}.',
     wait:    'Merci de patienter, nous intervenons sur votre borne.',
-    repair:  'Une intervention technique est en cours. Merci de patienter.',
-    done:    'L’intervention est terminée. Merci de votre patience.'
+    done:    'L’intervention est terminée. Merci de votre patience. Le processus va reprendre son cours dans quelques secondes.',
   }
 };
