@@ -3,7 +3,7 @@
 #  Ouidrop - ouvre la page de communication en plein ecran (Linux / Odroid)
 #  Modifier uniquement la ligne URL ci-dessous.
 # ------------------------------------------------------------
-URL="https://VOTRE-COMPTE.github.io/VOTRE-DEPOT/communication.html"
+URL="https://mmw-ouidrop.github.io/com-bornes/index.html"
 
 # Utile si le script est lance depuis une session SSH plutot que depuis le bureau
 export DISPLAY="${DISPLAY:-:0}"
